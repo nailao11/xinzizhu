@@ -1,0 +1,89 @@
+name: Android build and device smoke test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile and test rules and interactions
+        run: |
+          mkdir -p build/test
+          javac -encoding UTF-8 -d build/test app/src/main/java/cn/shanhai/game/Engine.java app/src/main/java/cn/shanhai/game/Board.java tests/RulesTest.java tests/InteractionTest.java tests/PolishTest.java
+          java -cp build/test cn.shanhai.game.RulesTest
+          java -cp build/test cn.shanhai.game.InteractionTest
+          java -cp build/test cn.shanhai.game.PolishTest
+      - name: Install Android SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'emulator' 'system-images;android-29;google_apis;x86_64'
+      - name: Build signed development APK
+        run: ANDROID_SDK_ROOT="$ANDROID_HOME" bash build.sh
+      - name: Boot emulator and exercise Android application
+        timeout-minutes: 12
+        run: |
+          sudo chmod 666 /dev/kvm
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n shanhai -k 'system-images;android-29;google_apis;x86_64' --force
+          "$ANDROID_HOME/emulator/emulator" -avd shanhai -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -no-snapshot >build/emulator.log 2>&1 &
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          adb wait-for-device
+          for i in $(seq 1 120); do
+            if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = '1' ]; then break; fi
+            sleep 2
+          done
+          adb shell wm size 720x1280
+          adb shell wm density 160
+          adb shell settings put system accelerometer_rotation 0
+          adb shell settings put system user_rotation 1
+          adb shell input keyevent 82
+          adb install build/shanhai-tongqi-0.2.0.apk
+          adb logcat -c
+          adb shell am start -W -n cn.shanhai.game/.MainActivity
+          sleep 3
+          mkdir -p build/device
+          adb exec-out screencap -p >build/device/01-home.png
+          adb shell input tap 250 435
+          sleep 1
+          adb exec-out screencap -p >build/device/02-choose.png
+          adb shell input tap 1100 620
+          sleep 3
+          adb exec-out screencap -p >build/device/03-battle.png
+          adb shell input tap 1035 35
+          sleep 1
+          adb exec-out screencap -p >build/device/04-rules.png
+          adb shell input tap 1010 135
+          adb shell input tap 1180 35
+          sleep 1
+          adb shell input tap 800 400
+          sleep 1
+          adb exec-out screencap -p >build/device/05-settings.png
+          adb shell input tap 900 265
+          adb shell input tap 1010 135
+          adb shell input keyevent KEYCODE_HOME
+          sleep 1
+          adb shell am force-stop cn.shanhai.game
+          adb shell am start -W -n cn.shanhai.game/.MainActivity
+          sleep 2
+          adb shell input tap 250 525
+          sleep 2
+          adb exec-out screencap -p >build/device/06-restored.png
+          adb shell pidof cn.shanhai.game
+          adb logcat -d >build/device/logcat.txt
+          if grep -E 'FATAL EXCEPTION|ANR in cn.shanhai.game' build/device/logcat.txt; then exit 1; fi
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-validation
+          path: |
+            build/device/
+            build/emulator.log
+            build/shanhai-tongqi-0.2.0.apk

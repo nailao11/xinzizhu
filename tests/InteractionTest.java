@@ -1,0 +1,13 @@
+package cn.shanhai.game;
+public class InteractionTest {
+ static int checks=0;static void ok(boolean v,String m){checks++;if(!v)throw new AssertionError(m);}
+ static Board.Host host=new Board.Host(){public void sound(String s){}public void save(){}public void settings(){}};
+ static Board.Ink ink=new Board.Ink(){public void poly(float[]p,int c){}public void rect(float a,float b,float c,float d,int e,float f){}public void line(float a,float b,float c,float d,int e,float f){}public void circle(float a,float b,float c,int d){}public void text(String s,float a,float b,float c,int d,boolean e){}public void art(String s,float a,float b,float c,float d,int e){}};
+ static void click(Board b,String id){b.render(ink);for(Board.Hit h:b.hits)if(h.id.equals(id)){b.tap(h.x+h.w/2,h.y+h.h/2);return;}throw new AssertionError("missing click target "+id+" phase="+b.game.phase+" screen="+b.screen);}
+ public static void main(String[]args){
+  Board b=new Board(host);b.action("new");b.action("hero2");b.action("start");ok(b.game.p[0].hero==2,"selected hero starts");click(b,"pause");ok(b.modal.equals("pause"),"pause");click(b,"close");ok(b.modal.isEmpty(),"resume");click(b,"rules");click(b,"close");
+  for(int seed=0;seed<200;seed++){b=new Board(host);b.game=new Engine(seed%4,seed);b.screen="battle";Engine e=b.game;int steps=0;while(e.phase!=3&&steps++<20000){if(e.phase==1&&e.responder()==0){click(b,e.count(0,e.required())>0?"respond":"accept");}else if(e.turn!=0||e.phase==1)e.ai();else if(e.phase==2){click(b,"card0");click(b,"play");}else{int t=e.target();if(!e.skillUsed&&(e.p[0].hero!=3||e.p[0].hp>1)&&(e.p[0].hero!=0||!e.p[e.targetFor(Engine.STEAL)].hand.isEmpty())){click(b,"skill");if(b.skillTarget)click(b,"target"+e.targetFor(Engine.STEAL));continue;}int choice=-1;for(int i=0;i<e.p[0].hand.size();i++)if(e.legal(i,e.targetFor(e.p[0].hand.get(i)))){choice=i;break;}if(choice<0){click(b,"end");if(b.modal.equals("confirmEnd"))click(b,"endYes");}else{b.page=choice/8;click(b,"card"+choice);if(e.needsTarget(e.p[0].hand.get(choice)))click(b,"target"+e.targetFor(e.p[0].hand.get(choice)));click(b,"play");}}ok(e.totalCards()==114,"card conservation");}ok(e.phase==3,"UI game terminates seed "+seed);b.render(ink);ok(b.hits.size()==2,"result only has final controls");}
+  Engine e=new Engine(0,3);for(Engine.Player p:e.p){e.discard.addAll(p.hand);p.hand.clear();}e.p[0].hp=1;e.deck.remove((Integer)5);e.p[0].hand.add(5);e.deck.remove((Integer)0);e.p[1].hand.add(0);e.play(0,1);e.response(false);ok(!e.p[0].alive()&&e.turn!=0,"active actor dies in duel and turn advances");
+  System.out.println("PASS "+checks+" UI assertions; 200 full games via actual hit regions; pause/rules/selection/response/discard/result verified");
+ }
+}
