@@ -44,7 +44,7 @@ jobs:
           adb shell settings put system accelerometer_rotation 0
           adb shell settings put system user_rotation 1
           adb shell input keyevent 82
-          adb install build/shanhai-tongqi-0.2.0.apk
+          adb install build/shanhai-tongqi-0.2.1.apk
           adb logcat -c
           adb shell am start -W -n cn.shanhai.game/.MainActivity
           sleep 3
@@ -86,4 +86,4 @@ jobs:
           path: |
             build/device/
             build/emulator.log
-            build/shanhai-tongqi-0.2.0.apk
+            build/shanhai-tongqi-0.2.1.apk

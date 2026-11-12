@@ -15,5 +15,5 @@ cp build/base.apk build/unsigned.apk
 if [ ! -f signing.p12 ]; then
  keytool -genkeypair -keystore signing.p12 -storepass android -keypass android -alias shanhai -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Shanhai Tongqi Development,O=Shanhai,C=CN' >/dev/null 2>&1
 fi
-"$BUILD_TOOLS/apksigner" sign --ks signing.p12 --ks-pass pass:android --key-pass pass:android --ks-key-alias shanhai --out build/shanhai-tongqi-0.2.0.apk build/aligned.apk
-"$BUILD_TOOLS/apksigner" verify --verbose build/shanhai-tongqi-0.2.0.apk
+"$BUILD_TOOLS/apksigner" sign --ks signing.p12 --ks-pass pass:android --key-pass pass:android --ks-key-alias shanhai --out build/shanhai-tongqi-0.2.1.apk build/aligned.apk
+"$BUILD_TOOLS/apksigner" verify --verbose build/shanhai-tongqi-0.2.1.apk
